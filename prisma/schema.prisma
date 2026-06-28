@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  password      String?
+  phone         String?
+  role          UserRole  @default(FARMER)
+  governorate   String?
+  address       String?
+  bio           String?
+  verified      Boolean   @default(false)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  betterAuthSessions  BetterAuthSession[]
+  betterAuthAccounts  BetterAuthAccount[]
+  products            Product[]
+  orders              Order[]        @relation("BuyerOrders")
+  sellerOrders        Order[]        @relation("SellerOrders")
+  forumPosts          ForumPost[]
+  forumReplies        ForumReply[]
+  alerts              Alert[]
+  reviews             Review[]
+  notifications       Notification[]
+  payments            Payment[]
+  buyerConversations  Conversation[] @relation("BuyerConversations")
+  sellerConversations Conversation[] @relation("SellerConversations")
+  sentMessages        Message[]      @relation("SentMessages")
+
+  @@map("users")
+}
+
+model BetterAuthSession {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("better_auth_sessions")
+}
+
+model BetterAuthAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("better_auth_accounts")
+}
+
+model BetterAuthVerification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("better_auth_verifications")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  nameAr      String
+  nameEn      String
+  slug        String    @unique
+  icon        String?
+  parentId    String?
+  parent      Category? @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[] @relation("SubCategories")
+  products    Product[]
+  createdAt   DateTime  @default(now())
+
+  @@map("categories")
+}
+
+model Product {
+  id            String        @id @default(cuid())
+  titleAr       String
+  titleEn       String?
+  descriptionAr String        @db.Text
+  descriptionEn String?       @db.Text
+  price         Decimal       @db.Decimal(10, 2)
+  currency      String        @default("SYP")
+  unit          String
+  quantity      Int
+  images        String[]
+  categoryId    String
+  sellerId      String
+  governorate   String
+  city          String?
+  status        ProductStatus @default(ACTIVE)
+  featured      Boolean       @default(false)
+  organic       Boolean       @default(false)
+  views         Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  category      Category       @relation(fields: [categoryId], references: [id])
+  seller        User           @relation(fields: [sellerId], references: [id])
+  orderItems    OrderItem[]
+  reviews       Review[]
+  conversations Conversation[]
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([governorate])
+  @@index([status, categoryId])
+  @@index([createdAt(sort: Desc)])
+  @@map("products")
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  buyerId         String
+  sellerId        String
+  status          OrderStatus   @default(PENDING)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  currency        String        @default("SYP")
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  deliveryAddress String
+  governorate     String
+  phone           String
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  buyer   User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  seller  User        @relation("SellerOrders", fields: [sellerId], references: [id])
+  items   OrderItem[]
+  payment Payment?
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  unit      String
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  orderId        String        @unique
+  userId         String
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("SYP")
+  status         PaymentStatus @default(PENDING)
+  transactionRef String?
+  phoneNumber    String?
+  bankName       String?
+  accountNumber  String?
+  receiptImage   String?
+  notes          String?
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model ForumPost {
+  id        String        @id @default(cuid())
+  titleAr   String
+  contentAr String        @db.Text
+  authorId  String
+  category  ForumCategory
+  tags      String[]
+  images    String[]
+  views     Int           @default(0)
+  pinned    Boolean       @default(false)
+  solved    Boolean       @default(false)
+  status    PostStatus    @default(PUBLISHED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  author  User         @relation(fields: [authorId], references: [id])
+  replies ForumReply[]
+
+  @@index([authorId])
+  @@index([category])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("forum_posts")
+}
+
+model ForumReply {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String   @db.Text
+  images    String[]
+  isBest    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User      @relation(fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@map("forum_replies")
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  titleAr      String
+  contentAr    String        @db.Text
+  type         AlertType
+  severity     AlertSeverity
+  governorates String[]
+  images       String[]
+  authorId     String
+  active       Boolean       @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime      @default(now())
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("alerts")
+}
+
+model WeatherData {
+  id            String   @id @default(cuid())
+  governorate   String
+  date          DateTime
+  tempMin       Float
+  tempMax       Float
+  humidity      Float
+  rainfall      Float?
+  windSpeed     Float?
+  description   String?
+  descriptionAr String?
+  icon          String?
+  createdAt     DateTime @default(now())
+
+  @@unique([governorate, date])
+  @@map("weather_data")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String?
+  titleAr   String
+  messageAr String
+  type      NotificationType
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model CropCalendar {
+  id           String   @id @default(cuid())
+  cropNameAr   String
+  cropNameEn   String?
+  governorate  String
+  plantMonth   Int
+  harvestMonth Int
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@map("crop_calendars")
+}
+
+model Conversation {
+  id           String    @id @default(cuid())
+  buyerId      String
+  sellerId     String
+  productId    String?
+  lastMessage  String?
+  unreadBuyer  Int       @default(0)
+  unreadSeller Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  buyer    User      @relation("BuyerConversations", fields: [buyerId], references: [id])
+  seller   User      @relation("SellerConversations", fields: [sellerId], references: [id])
+  product  Product?  @relation(fields: [productId], references: [id])
+  messages Message[]
+
+  @@unique([buyerId, sellerId, productId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String       @db.Text
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+enum UserRole {
+  ADMIN
+  MODERATOR
+  FARMER
+  BUYER
+  EXPERT
+}
+
+enum ProductStatus {
+  ACTIVE
+  SOLD
+  PAUSED
+  DELETED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  SYRIATEL_CASH
+  MTN_CASH
+  SHAM_CASH
+  BANK_TRANSFER
+  USDT
+  IN_PERSON
+}
+
+enum ForumCategory {
+  CROP_DISEASES
+  IRRIGATION
+  SOIL
+  LIVESTOCK
+  MACHINERY
+  MARKET_PRICES
+  WEATHER
+  GENERAL
+  ADVICE
+}
+
+enum AlertType {
+  PEST
+  DISEASE
+  WEATHER
+  MARKET
+  GENERAL
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PostStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum NotificationType {
+  ORDER
+  PAYMENT
+  ALERT
+  FORUM
+  SYSTEM
+}
