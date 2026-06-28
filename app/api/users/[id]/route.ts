@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
@@ -10,8 +11,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
-      products: { take: 5, orderBy: { createdAt: "desc" } },
-      orders: { take: 5, orderBy: { createdAt: "desc" } },
+      products: { include: { category: { select: { nameAr: true } } }, orderBy: { createdAt: "desc" }, take: 20 },
+      orders: { orderBy: { createdAt: "desc" }, take: 20 },
+      sellerOrders: { orderBy: { createdAt: "desc" }, take: 20 },
+      forumPosts: { orderBy: { createdAt: "desc" }, take: 20 },
+      payments: { orderBy: { createdAt: "desc" }, take: 20 },
       _count: { select: { products: true, orders: true, forumPosts: true } },
     },
   });
@@ -38,5 +42,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const user = await prisma.user.update({ where: { id }, data: allowed });
+
+  const changes = Object.keys(allowed).join(", ");
+  await logAudit({
+    adminId: session.id,
+    adminEmail: session.email,
+    action: "USER_UPDATED",
+    target: `user:${id}`,
+    details: `Updated ${changes} for user ${id}`,
+  });
+
   return NextResponse.json({ success: true, data: user });
 }

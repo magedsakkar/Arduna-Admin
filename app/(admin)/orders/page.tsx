@@ -3,6 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { formatDate, formatCurrency, statusColors } from "@/lib/format";
 
+function downloadCSV(rows: string[][], filename: string) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface Order {
   id: string;
   orderNumber: string;
@@ -59,9 +67,27 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "20px", fontWeight: "600", color: "var(--text)", margin: 0 }}>Orders</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "4px 0 0 0" }}>{pagination.total.toLocaleString()} total orders</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <div>
+          <h1 style={{ fontSize: "20px", fontWeight: "600", color: "var(--text)", margin: 0 }}>Orders</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "4px 0 0 0" }}>{pagination.total.toLocaleString()} total orders</p>
+        </div>
+        <button
+          onClick={async () => {
+            const params = new URLSearchParams({ page: "1", limit: "1000" });
+            if (search) params.set("search", search);
+            if (status) params.set("status", status);
+            const res = await fetch(`/api/orders?${params}`);
+            const d = await res.json();
+            if (!d.success) return;
+            const rows: string[][] = [["orderNumber","buyerName","buyerEmail","sellerName","totalAmount","currency","paymentMethod","status","paymentStatus","governorate","createdAt"]];
+            for (const o of d.data) rows.push([o.orderNumber, o.buyer.name || "", o.buyer.email, o.seller.name || o.seller.email, String(o.totalAmount), o.currency, o.paymentMethod, o.status, o.paymentStatus, o.governorate, o.createdAt]);
+            downloadCSV(rows, "orders.csv");
+          }}
+          style={{ padding: "7px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "13px", cursor: "pointer" }}
+        >
+          ⬇ Export CSV
+        </button>
       </div>
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>

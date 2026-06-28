@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { formatDate, roleColors, truncate } from "@/lib/format";
+
+function downloadCSV(rows: string[][], filename: string) {
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface User {
   id: string;
@@ -66,6 +76,23 @@ export default function UsersPage() {
           <h1 style={{ fontSize: "20px", fontWeight: "600", color: "var(--text)", margin: 0 }}>Users</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "13px", margin: "4px 0 0 0" }}>{pagination.total.toLocaleString()} total users</p>
         </div>
+        <button
+          onClick={async () => {
+            const params = new URLSearchParams({ page: "1", limit: "1000" });
+            if (search) params.set("search", search);
+            if (role) params.set("role", role);
+            if (active !== "") params.set("active", active);
+            const res = await fetch(`/api/users?${params}`);
+            const d = await res.json();
+            if (!d.success) return;
+            const rows: string[][] = [["id","name","email","role","governorate","phone","verified","active","createdAt"]];
+            for (const u of d.data) rows.push([u.id, u.name || "", u.email, u.role, u.governorate || "", u.phone || "", String(u.verified), String(u.active), u.createdAt]);
+            downloadCSV(rows, "users.csv");
+          }}
+          style={{ padding: "7px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "13px", cursor: "pointer" }}
+        >
+          ⬇ Export CSV
+        </button>
       </div>
 
       {/* Filters */}
@@ -110,8 +137,10 @@ export default function UsersPage() {
             ) : users.map((u) => (
               <tr key={u.id}>
                 <td>
-                  <div style={{ fontWeight: "500", color: "var(--text)" }}>{u.name || "—"}</div>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{u.email}</div>
+                  <Link href={`/users/${u.id}`} style={{ textDecoration: "none" }}>
+                    <div style={{ fontWeight: "500", color: "var(--accent)" }}>{u.name || "—"}</div>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>{u.email}</div>
+                  </Link>
                 </td>
                 <td>
                   <span

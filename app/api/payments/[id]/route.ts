@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
@@ -50,6 +51,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     }).catch(() => {});
   }
+
+  await logAudit({
+    adminId: session.id,
+    adminEmail: session.email,
+    action: action === "approve" ? "PAYMENT_APPROVED" : "PAYMENT_REJECTED",
+    target: `payment:${id}`,
+    details: `Payment ${id} for order ${payment.orderId} — ${action}`,
+  });
 
   return NextResponse.json({ success: true });
 }

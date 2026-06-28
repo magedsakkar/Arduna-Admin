@@ -11,6 +11,8 @@ interface AnalyticsData {
   roleDistribution: Array<{ role: string; count: number }>;
   categoryDistribution: Array<{ name: string; count: number }>;
   governorateDistribution: Array<{ governorate: string; count: number }>;
+  paymentMethodsDistribution: Array<{ method: string; count: number }>;
+  forumActivity: Array<{ date: string; posts: number }>;
 }
 
 const COLORS = ["#2ea043", "#58a6ff", "#e3b341", "#f85149", "#bc8cff", "#ff9500", "#39d353", "#79c0ff"];
@@ -83,7 +85,7 @@ export default function AnalyticsPage() {
         </ChartBox>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
         {/* User roles pie */}
         <ChartBox title="User Roles">
           <ResponsiveContainer width="100%" height={220}>
@@ -119,6 +121,42 @@ export default function AnalyticsPage() {
               <Tooltip contentStyle={tooltipStyle} />
               <Bar dataKey="count" fill="#e3b341" radius={[0, 3, 3, 0]} />
             </BarChart>
+          </ResponsiveContainer>
+        </ChartBox>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        {/* Payment methods pie */}
+        <ChartBox title="Payment Methods Distribution">
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={data.paymentMethodsDistribution}
+                dataKey="count"
+                nameKey="method"
+                cx="50%"
+                cy="50%"
+                outerRadius={85}
+                label={({ method, percent }) => `${method.replace(/_/g, " ")} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                labelLine={false}
+              >
+                {data.paymentMethodsDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [v, String(n).replace(/_/g, " ")]} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartBox>
+
+        {/* Forum activity last 30 days */}
+        <ChartBox title="Forum Activity (last 30 days)">
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={data.forumActivity}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" tick={{ fill: "var(--text-muted)", fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Line type="monotone" dataKey="posts" stroke="#bc8cff" strokeWidth={2} dot={false} name="Posts" />
+            </LineChart>
           </ResponsiveContainer>
         </ChartBox>
       </div>

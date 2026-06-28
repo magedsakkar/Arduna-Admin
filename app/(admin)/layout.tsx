@@ -10,10 +10,15 @@ const NAV_ITEMS = [
   { href: "/products", label: "Products", icon: "🌽" },
   { href: "/orders", label: "Orders", icon: "📦" },
   { href: "/payments", label: "Payments", icon: "💳" },
-  { href: "/forum", label: "Forum", icon: "💬" },
+  { href: "/forum", label: "Forum", icon: "🗣️" },
   { href: "/alerts", label: "Alerts", icon: "🚨" },
   { href: "/crop-calendar", label: "Crop Calendar", icon: "📅" },
+  { href: "/messages", label: "Conversations", icon: "💬" },
+  { href: "/reviews", label: "Reviews", icon: "⭐" },
+  { href: "/notifications", label: "Notifications", icon: "🔔" },
+  { href: "/weather", label: "Weather Data", icon: "🌤️" },
   { href: "/analytics", label: "Analytics", icon: "📈" },
+  { href: "/audit", label: "Audit Log", icon: "📋" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
@@ -178,7 +183,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }}
         >
           <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-            {NAV_ITEMS.find((n) => pathname === n.href || (n.href !== "/dashboard" && pathname.startsWith(n.href)))?.label || "Dashboard"}
+            {NAV_ITEMS.find((n) => pathname === n.href || (n.href !== "/dashboard" && pathname.startsWith(n.href)))?.label || "Arduna Admin"}
           </span>
         </div>
 

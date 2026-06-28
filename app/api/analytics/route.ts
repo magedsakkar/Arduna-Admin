@@ -12,13 +12,18 @@ export async function GET() {
   twelveMonthsAgo.setDate(1);
   twelveMonthsAgo.setHours(0, 0, 0, 0);
 
-  const [users, orders, products, payments, categoryStats, governorateStats] = await Promise.all([
+  const thirtyDaysAgo = new Date(now);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [users, orders, products, payments, categoryStats, governorateStats, paymentMethodStats, recentPosts] = await Promise.all([
     prisma.user.findMany({ where: { createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, role: true } }),
     prisma.order.findMany({ where: { createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, status: true, totalAmount: true, currency: true } }),
     prisma.product.findMany({ where: { status: { not: "DELETED" } }, select: { categoryId: true, category: { select: { nameAr: true } }, views: true } }),
     prisma.payment.findMany({ where: { status: "COMPLETED", createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, amount: true, currency: true } }),
     prisma.product.groupBy({ by: ["categoryId"], where: { status: { not: "DELETED" } }, _count: { id: true } }),
     prisma.user.groupBy({ by: ["governorate"], _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 10 }),
+    prisma.payment.groupBy({ by: ["method"], _count: { method: true } }),
+    prisma.forumPost.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
   ]);
 
   // Build monthly series
@@ -59,6 +64,28 @@ export async function GET() {
     count: c._count.id,
   }));
 
+  // Payment methods distribution
+  const paymentMethodsData = paymentMethodStats.map((p) => ({
+    method: p.method,
+    count: p._count.method,
+  }));
+
+  // Forum activity last 30 days (group by date string)
+  const forumByDate: Record<string, number> = {};
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    forumByDate[key] = 0;
+  }
+  for (const post of recentPosts) {
+    const key = post.createdAt.toISOString().slice(0, 10);
+    if (forumByDate[key] !== undefined) forumByDate[key]++;
+  }
+  const forumActivity = Object.entries(forumByDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, posts]) => ({ date, posts }));
+
   return NextResponse.json({
     success: true,
     data: {
@@ -66,6 +93,8 @@ export async function GET() {
       roleDistribution: Object.entries(roleMap).map(([role, count]) => ({ role, count })),
       categoryDistribution: categoryData.sort((a, b) => b.count - a.count).slice(0, 8),
       governorateDistribution: governorateStats.map((g) => ({ governorate: g.governorate || "Unknown", count: g._count.id })),
+      paymentMethodsDistribution: paymentMethodsData,
+      forumActivity,
     },
   });
 }
