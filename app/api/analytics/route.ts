@@ -15,12 +15,13 @@ export async function GET() {
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [users, orders, products, payments, categoryStats, governorateStats, paymentMethodStats, recentPosts] = await Promise.all([
-    prisma.user.findMany({ where: { createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, role: true } }),
+  const [users, orders, allUsersForRoles, payments, categoryStats, categories, governorateStats, paymentMethodStats, recentPosts] = await Promise.all([
+    prisma.user.findMany({ where: { createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true } }),
     prisma.order.findMany({ where: { createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, status: true, totalAmount: true, currency: true } }),
-    prisma.product.findMany({ where: { status: { not: "DELETED" } }, select: { categoryId: true, category: { select: { nameAr: true } }, views: true } }),
+    prisma.user.findMany({ select: { role: true } }),
     prisma.payment.findMany({ where: { status: "COMPLETED", createdAt: { gte: twelveMonthsAgo } }, select: { createdAt: true, amount: true, currency: true } }),
     prisma.product.groupBy({ by: ["categoryId"], where: { status: { not: "DELETED" } }, _count: { id: true } }),
+    prisma.category.findMany({ select: { id: true, nameAr: true } }),
     prisma.user.groupBy({ by: ["governorate"], _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 10 }),
     prisma.payment.groupBy({ by: ["method"], _count: { method: true } }),
     prisma.forumPost.findMany({ where: { createdAt: { gte: thirtyDaysAgo } }, select: { createdAt: true } }),
@@ -48,17 +49,14 @@ export async function GET() {
     if (months[key]) months[key].revenue += Number(p.amount);
   }
 
-  // Role distribution
+  // Role distribution — uses ALL users, not time-filtered subset
   const roleMap: Record<string, number> = {};
-  for (const u of users) {
+  for (const u of allUsersForRoles) {
     roleMap[u.role] = (roleMap[u.role] || 0) + 1;
   }
 
-  // Product categories (need names — join with products result)
-  const catNameMap: Record<string, string> = {};
-  for (const p of products) {
-    catNameMap[p.categoryId] = (p as { category?: { nameAr: string } }).category?.nameAr || p.categoryId;
-  }
+  // Product categories — use pre-fetched categories lookup (no N+1)
+  const catNameMap: Record<string, string> = Object.fromEntries(categories.map((c) => [c.id, c.nameAr]));
   const categoryData = categoryStats.map((c) => ({
     name: catNameMap[c.categoryId] || c.categoryId,
     count: c._count.id,

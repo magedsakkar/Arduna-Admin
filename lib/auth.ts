@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
-const SECRET = process.env.ADMIN_JWT_SECRET || "arduna-admin-jwt-secret";
+const SECRET = process.env.ADMIN_JWT_SECRET;
+if (!SECRET) throw new Error("ADMIN_JWT_SECRET is not set");
 const COOKIE = "arduna.admin.session";
 const EXPIRY = "8h";
 

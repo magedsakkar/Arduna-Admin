@@ -17,6 +17,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const payment = await prisma.payment.findUnique({ where: { id }, include: { order: true } });
   if (!payment) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
 
+  if (payment.status === "COMPLETED") {
+    return NextResponse.json({ error: "هذه الدفعة تمت الموافقة عليها مسبقاً" }, { status: 409 });
+  }
+
   if (action === "approve") {
     await prisma.$transaction([
       prisma.payment.update({
@@ -48,6 +52,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         messageAr: "لم نتمكن من التحقق من دفعتك. يرجى التواصل مع الدعم.",
         type: "PAYMENT",
         link: "/orders",
+      },
+    }).catch(() => {});
+
+    await prisma.notification.create({
+      data: {
+        userId: payment.order.sellerId,
+        titleAr: "فشل التحقق من الدفع",
+        messageAr: `فشل التحقق من دفعة الطلب #${payment.order.orderNumber}. يرجى التواصل مع المشتري.`,
+        type: "PAYMENT",
+        link: "/dashboard",
       },
     }).catch(() => {});
   }
