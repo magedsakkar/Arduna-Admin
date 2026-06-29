@@ -38,6 +38,8 @@ model User {
   buyerConversations  Conversation[] @relation("BuyerConversations")
   sellerConversations Conversation[] @relation("SellerConversations")
   sentMessages        Message[]      @relation("SentMessages")
+  landListings        LandListing[]  @relation("UserLandListings")
+  landInquiries       LandInquiry[]  @relation("UserLandInquiries")
 
   @@map("users")
 }
@@ -449,4 +451,94 @@ enum NotificationType {
   ALERT
   FORUM
   SYSTEM
+}
+
+model LandListing {
+  id               String          @id @default(cuid())
+  title            String
+  description      String          @db.Text
+  governorate      String
+  district         String
+  village          String
+  specificLocation String?
+  landType         LandType
+  listingType      LandListingType
+  areaDunum        Float
+  totalPrice       Float
+  currency         String          @default("SYP")
+  pricePerDunum    Float?
+  waterSource      WaterSource
+  irrigation       Boolean         @default(false)
+  hasTitleDeed     Boolean         @default(false)
+  soilDescription  String?
+  images           String[]
+  status           LandStatus      @default(ACTIVE)
+  sellerId         String
+  seller           User            @relation("UserLandListings", fields: [sellerId], references: [id])
+  inquiries        LandInquiry[]
+  views            Int             @default(0)
+  contactPhone     String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([sellerId])
+  @@index([governorate])
+  @@index([status])
+  @@index([landType])
+  @@index([createdAt(sort: Desc)])
+  @@map("land_listings")
+}
+
+model LandInquiry {
+  id        String      @id @default(cuid())
+  listingId String
+  listing   LandListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User        @relation("UserLandInquiries", fields: [buyerId], references: [id])
+  message   String      @db.Text
+  phone     String?
+  isRead    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([listingId])
+  @@index([buyerId])
+  @@map("land_inquiries")
+}
+
+enum LandType {
+  OLIVE_GROVE
+  PISTACHIO
+  WHEAT_FIELD
+  CITRUS
+  APPLE_ORCHARD
+  GRAPE_VINEYARD
+  CHERRY_ORCHARD
+  FIG_ORCHARD
+  COTTON_FIELD
+  VEGETABLE_FARM
+  MIXED_ORCHARD
+  GRAZING_LAND
+  BARE_LAND
+  GREENHOUSE
+}
+
+enum LandListingType {
+  FOR_SALE
+  FOR_RENT
+}
+
+enum WaterSource {
+  RIVER
+  WELL
+  RAIN_FED
+  CANAL
+  SPRING
+  DRIP
+}
+
+enum LandStatus {
+  ACTIVE
+  SOLD
+  RENTED
+  WITHDRAWN
 }
